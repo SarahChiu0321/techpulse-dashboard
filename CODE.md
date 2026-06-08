@@ -10,14 +10,14 @@
 手機型號
    │
    ▼
-crawl_reviews()        ① 爬蟲：抓取網路評論       （Week 12）
+crawl_reviews()        ① 爬蟲：抓取網路評論       
    │  [{who, txt, src, date}, ...]
    ▼
-analyze_review()       ③ LLM 面向級情緒分析       （Week 8-9）
-   │  └─ sanitize()     ② 先過濾注入文字           （Week 16）
+analyze_review()       ③ LLM 面向級情緒分析      
+   │  └─ sanitize()     ② 先過濾注入文字          
    │  [{sentiment, aspect, summary, aspect_scores, confidence}, ...]
    ▼
-hallucination_audit()  ④ 反幻覺抽查               （Week 16）
+hallucination_audit()  ④ 反幻覺抽查          
    │
    ▼
 build_dashboard()      ⑤ 彙整面向統計、綜合分
@@ -25,7 +25,7 @@ build_dashboard()      ⑤ 彙整面向統計、綜合分
    ▼
 dashboard_data.json    → 貼進 index.html 的 DATA
 
-另有 build_agent()     ⑥ 自然語言問答 Agent      （Week 15）
+另有 build_agent()     ⑥ 自然語言問答 Agent  
 ```
 
 ---
@@ -57,26 +57,24 @@ client = OpenAI()
 
 ### ① `crawl_reviews(product_query, pages=2)` — 爬蟲
 
-**做什麼**：對指定產品爬取多頁網路評論。
+對指定產品爬取多頁網路評論。
 
-**輸入**：`product_query`（產品名）、`pages`（要爬幾頁）。
+輸入：`product_query`（產品名）、`pages`（要爬幾頁）。
 
-**輸出**：評論清單，每筆是 `{who, txt, src, date}`。
+輸出：評論清單，每筆是 `{who, txt, src, date}`。
 
 **重點**：
 
 - 用 `requests.get()` 下載網頁，`BeautifulSoup` 解析 HTML。
-- `soup.select(".review-item")` 的 CSS 選擇器是**範例**，實際使用時要改成目標網站真正的 class 名稱（程式內已用 `← 換成真實 class` 標註）。
 - `try / except` 包住單頁爬取，某頁失敗不會中斷整個流程（對應 Week 6 例外處理）。
 - `time.sleep(1)` 是禮貌性延遲，避免對目標網站發出過快的請求。
 
-> 也可改用 Instant Data Scraper 匯出的 CSV，主程式裡有註解示範替換點。
 
 ### ② `sanitize(text)` — Prompt Injection 過濾
 
-**做什麼**：中和評論中可能藏的惡意指令，是防注入的第一道防線。
+中和評論中可能藏的惡意指令，是防注入的第一道防線。
 
-**輸入／輸出**：原始評論文字 → 清理後的文字。
+輸入／輸出：原始評論文字 → 清理後的文字。
 
 **重點**：
 
@@ -86,11 +84,11 @@ client = OpenAI()
 
 ### ③ `analyze_review(text)` — 面向級情緒分析
 
-**做什麼**：呼叫 OpenAI API，把一則評論拆解成六大面向的情緒與摘要。
+呼叫 OpenAI API，把一則評論拆解成六大面向的情緒與摘要。
 
-**輸入**：單則評論文字。
+輸入：單則評論文字。
 
-**輸出**：`{sentiment, aspect, summary, aspect_scores, confidence}`，分析失敗則回傳 `None`。
+輸出：`{sentiment, aspect, summary, aspect_scores, confidence}`，分析失敗則回傳 `None`。
 
 **重點**：
 
@@ -102,24 +100,23 @@ client = OpenAI()
 
 ### ④ `hallucination_audit(results, sample_ratio=0.2)` — 反幻覺抽查
 
-**做什麼**：揪出可能是 LLM 杜撰的分析結果，標記後供人工複查。
+揪出可能是 LLM 杜撰的分析結果，標記後供人工複查。
 
-**輸入**：分析結果清單、抽樣比例。
+輸入：分析結果清單、抽樣比例。
 
-**輸出**：需複查的清單（含被標記的原因）。
+輸出：需複查的清單（含被標記的原因）。
 
-**重點**：兩種檢查並行——
+**重點**：兩種檢查並行—
 
-1. **低信心過濾**：`confidence < 0.5` 的結果直接標記。
-2. **隨機抽樣交叉比對**：隨機抽 20% 的結果，檢查 LLM 產生的 `summary` 用字是否真的出現在原文 `_orig` 中；若交集過低（低於 30%），代表摘要可能脫離原文、疑似幻覺，予以標記。
+1. 低信心過濾：`confidence < 0.5` 的結果直接標記。
+2. 隨機抽樣交叉比對：隨機抽 20% 的結果，檢查 LLM 產生的 `summary` 用字是否真的出現在原文 `_orig` 中；若交集過低（低於 30%），代表摘要可能脫離原文、疑似幻覺，予以標記。
 
-這對應 Week 16「辨識並改善 Hallucination」的實作。
 
 ### ⑤ `build_dashboard(product_name, raw_reviews)` — 彙整
 
-**做什麼**：把一支手機的所有評論跑完分析與稽核，彙整成網頁需要的格式。
+把一支手機的所有評論跑完分析與稽核，彙整成網頁需要的格式。
 
-**輸出**：`{score, aspect, mentions, posRatio, reviews}`，對應 `index.html` 中 `DATA[產品]` 的結構。
+輸出：`{score, aspect, mentions, posRatio, reviews}`，對應 `index.html` 中 `DATA[產品]` 的結構。
 
 **重點**：
 
@@ -132,11 +129,9 @@ client = OpenAI()
 
 ### ⑥ `build_agent(dashboard_json)` — AI 選購顧問 Agent
 
-**做什麼**：用 Gemini + Langchain 建立一個能用自然語言問答的顧問。
+輸入：某支手機的彙整數據。
 
-**輸入**：某支手機的彙整數據。
-
-**輸出**：一個 `query(question)` 函式，傳入問題回傳答案。
+輸出：一個 `query(question)` 函式，傳入問題回傳答案。
 
 **重點**：
 
@@ -158,11 +153,11 @@ client = OpenAI()
 
 ## 與課堂內容對應
 
-| 程式區段 | 對應週次 | 課堂主題 |
-|----------|----------|----------|
-| `crawl_reviews` | Week 12 | Instant Data Scraper / 爬蟲 |
-| `try/except`、檔案寫入 | Week 3–6 | Python 語法、例外、檔案處理 |
-| `analyze_review` | Week 8–9 | OpenAI API 應用與實作 |
-| `sanitize`、分隔標記 | Week 16 | 防範 Prompt Injection |
-| `hallucination_audit` | Week 16 | 防範 Hallucination |
-| `build_agent` | Week 15 | Gemini + Langchain AI Agent |
+| 程式區段 | 課堂主題 |
+|----------|----------|
+| `crawl_reviews` | Instant Data Scraper / 爬蟲 |
+| `try/except`、檔案寫入 | Python 語法、例外、檔案處理 |
+| `analyze_review` | OpenAI API 應用與實作 |
+| `sanitize`、分隔標記 | 防範 Prompt Injection |
+| `hallucination_audit` | 防範 Hallucination |
+| `build_agent` | Gemini + Langchain AI Agent |
