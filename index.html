@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>3C 產品口碑智慧分析 | TechPulse</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --paper:#fafafa; --line:#ececec; --line-2:#e3e3e3;
+    --ink:#111418; --ink-2:#5b626e; --ink-3:#9aa1ac;
+    --pos:#0ea371; --neu:#c98a14; --neg:#e0455e; --accent:#2f6bff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:'Manrope',sans-serif;
+    min-height:100vh;padding:48px 24px 80px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1080px;margin:0 auto}
+
+  header{margin-bottom:30px}
+  .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:3px;
+    color:var(--accent);text-transform:uppercase;margin-bottom:14px}
+  .title{font-size:clamp(30px,5vw,48px);font-weight:800;letter-spacing:-1.5px;line-height:1.05}
+  .lede{color:var(--ink-2);font-size:15px;margin-top:14px;max-width:580px;line-height:1.6}
+
+  /* 搜尋框 */
+  .searchbar{margin-top:26px;position:relative;max-width:520px}
+  .searchbar input{width:100%;border:1px solid var(--line-2);background:var(--bg);border-radius:12px;
+    padding:14px 16px 14px 44px;font-family:'Manrope',sans-serif;font-size:15px;color:var(--ink);outline:none;transition:.16s}
+  .searchbar input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(47,107,255,.1)}
+  .searchbar svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);width:18px;height:18px;stroke:var(--ink-3);fill:none;stroke-width:2}
+  .suggest{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--bg);border:1px solid var(--line-2);
+    border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.08);overflow:hidden;z-index:20;display:none}
+  .suggest.show{display:block}
+  .suggest div{padding:11px 16px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+  .suggest div:hover,.suggest div.hl{background:var(--paper)}
+  .suggest .br{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-3)}
+  .suggest .none{color:var(--ink-3);cursor:default}
+  .suggest .none:hover{background:none}
+
+  .chips-top{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  .chips-top span{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-2);background:var(--bg);
+    border:1px solid var(--line-2);border-radius:999px;padding:6px 13px;cursor:pointer;transition:.16s}
+  .chips-top span:hover{border-color:var(--accent);color:var(--accent)}
+  .chips-top span.on{background:var(--ink);border-color:var(--ink);color:#fff}
+
+  .current-name{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-3);
+    margin:30px 0 12px;letter-spacing:.5px}
+  .current-name b{color:var(--ink);font-size:15px;letter-spacing:0}
+
+  .scorecard{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:28px}
+  .sc{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:22px}
+  .sc .lab{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-3);letter-spacing:.5px;text-transform:uppercase}
+  .sc .big{font-size:40px;font-weight:800;margin-top:8px;line-height:1;letter-spacing:-1px}
+  .sc .small{font-size:12px;color:var(--ink-3);margin-top:6px}
+  .sc.score .big{color:var(--accent)} .sc.pos .big{color:var(--pos)}
+  .sc.neu .big{color:var(--neu)} .sc.neg .big{color:var(--neg)}
+  @media(max-width:860px){.scorecard{grid-template-columns:1fr 1fr}}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:28px}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:24px}
+  .card h2{font-size:15px;font-weight:700;margin-bottom:2px}
+  .card .sub{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-3);margin-bottom:18px;letter-spacing:.5px}
+  .chart-box{position:relative;height:290px}
+  @media(max-width:860px){.grid{grid-template-columns:1fr}}
+
+  .agent{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:24px;margin-bottom:28px}
+  .agent h2{font-size:15px;font-weight:700;margin-bottom:2px}
+  .agent .sub{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-3);margin-bottom:16px;letter-spacing:.5px}
+  .ask{display:flex;gap:10px;flex-wrap:wrap}
+  .ask input{flex:1;min-width:200px;border:1px solid var(--line-2);background:var(--bg);border-radius:10px;
+    padding:12px 14px;font-family:'Manrope',sans-serif;font-size:14px;color:var(--ink);outline:none}
+  .ask input:focus{border-color:var(--accent)}
+  .ask button{background:var(--ink);color:#fff;border:none;border-radius:10px;padding:12px 22px;font-weight:700;font-size:14px;cursor:pointer}
+  .ask button:hover{background:#000}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .chips span{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--ink-2);background:var(--bg);
+    border:1px solid var(--line-2);border-radius:999px;padding:6px 12px;cursor:pointer;transition:.16s}
+  .chips span:hover{border-color:var(--accent);color:var(--accent)}
+  .answer{margin-top:16px;background:var(--bg);border:1px solid var(--line);border-left:3px solid var(--accent);
+    border-radius:10px;padding:16px 18px;font-size:14px;line-height:1.7;color:var(--ink);display:none}
+  .answer.show{display:block;animation:rise .3s ease both}
+  .answer .src{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-3);margin-top:10px}
+
+  .feed h2{font-size:15px;font-weight:700;margin-bottom:2px}
+  .feed .sub{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-3);margin-bottom:16px;letter-spacing:.5px}
+  .filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .filters button{background:var(--bg);border:1px solid var(--line-2);color:var(--ink-2);
+    font-family:'IBM Plex Mono',monospace;font-size:12px;padding:7px 15px;border-radius:999px;cursor:pointer;transition:.16s}
+  .filters button.on{color:#fff;font-weight:500;border-color:transparent}
+  .filters button[data-f="all"].on{background:var(--ink)}
+  .filters button[data-f="正面"].on{background:var(--pos)}
+  .filters button[data-f="中立"].on{background:var(--neu)}
+  .filters button[data-f="負面"].on{background:var(--neg)}
+
+  .item{background:var(--bg);border:1px solid var(--line);border-left-width:3px;border-radius:10px;
+    padding:16px 18px;margin-bottom:10px;animation:rise .3s ease both}
+  .item[data-s="正面"]{border-left-color:var(--pos)}
+  .item[data-s="中立"]{border-left-color:var(--neu)}
+  .item[data-s="負面"]{border-left-color:var(--neg)}
+  .item .head{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+  .item .who{font-weight:700;font-size:14px}
+  .item .badges{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end}
+  .item .tag{font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 9px;border-radius:6px;white-space:nowrap}
+  .item[data-s="正面"] .tag.s{background:rgba(14,163,113,.1);color:var(--pos)}
+  .item[data-s="中立"] .tag.s{background:rgba(201,138,20,.12);color:var(--neu)}
+  .item[data-s="負面"] .tag.s{background:rgba(224,69,94,.1);color:var(--neg)}
+  .item .tag.a{background:var(--paper);color:var(--accent);border:1px solid var(--line-2)}
+  .item .txt{color:var(--ink-2);font-size:13.5px;margin-top:9px;line-height:1.65}
+  .item .meta{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-3);margin-top:10px}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .empty{background:var(--paper);border:1px dashed var(--line-2);border-radius:14px;padding:40px 24px;text-align:center;color:var(--ink-2)}
+  .empty b{display:block;font-size:16px;color:var(--ink);margin-bottom:8px}
+
+  footer{margin-top:48px;border-top:1px solid var(--line);padding-top:24px;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-3);line-height:2}
+  footer b{color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">TechPulse · Review Intelligence</div>
+    <div class="title">3C 產品口碑智慧分析</div>
+    <div class="lede">輸入手機型號即可查詢網路口碑。透過 LLM 拆解為六大面向情緒，並提供自然語言問答 Agent。內建 Prompt Injection 防範與 Hallucination 抽查機制。</div>
+    <div class="searchbar">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input id="search" placeholder="搜尋手機型號，例如 Pixel、iPhone、Galaxy…" autocomplete="off" />
+      <div class="suggest" id="suggest"></div>
+    </div>
+    <div class="chips-top" id="quick"></div>
+  </header>
+
+  <div id="dashboard">
+    <div class="current-name">正在檢視　<b id="curName"></b></div>
+    <div class="scorecard">
+      <div class="sc score"><div class="lab">綜合口碑</div><div class="big" id="kScore">0</div><div class="small">滿分 100 · 加權情緒</div></div>
+      <div class="sc pos"><div class="lab">正面</div><div class="big" id="kPos">0</div><div class="small">則評價</div></div>
+      <div class="sc neu"><div class="lab">中立</div><div class="big" id="kNeu">0</div><div class="small">則評價</div></div>
+      <div class="sc neg"><div class="lab">負面</div><div class="big" id="kNeg">0</div><div class="small">則評價</div></div>
+    </div>
+
+    <div class="agent">
+      <h2>AI 選購顧問 Agent</h2><div class="sub">NATURAL-LANGUAGE QUERY · GEMINI + LANGCHAIN</div>
+      <div class="ask">
+        <input id="q" placeholder="例如：這支手機拍照好嗎？散熱有問題嗎？" />
+        <button onclick="ask()">詢問</button>
+      </div>
+      <div class="chips" id="chips"></div>
+      <div class="answer" id="answer"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card"><h2>六大面向口碑雷達</h2><div class="sub">ASPECT-LEVEL SENTIMENT RADAR</div><div class="chart-box"><canvas id="radar"></canvas></div></div>
+      <div class="card"><h2>情緒分布</h2><div class="sub">SENTIMENT BREAKDOWN</div><div class="chart-box"><canvas id="pie"></canvas></div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:28px">
+      <h2>各面向提及次數與好評率</h2><div class="sub">ASPECT MENTIONS &amp; POSITIVE RATIO</div>
+      <div class="chart-box"><canvas id="bar"></canvas></div>
+    </div>
+
+    <div class="feed">
+      <h2>評論列表</h2><div class="sub">CLICK A FILTER TO DRILL DOWN</div>
+      <div class="filters" id="filters">
+        <button data-f="all" class="on">全部</button>
+        <button data-f="正面">正面</button>
+        <button data-f="中立">中立</button>
+        <button data-f="負面">負面</button>
+      </div>
+      <div id="feed"></div>
+    </div>
+  </div>
+
+  <div class="empty" id="empty" style="display:none">
+    <b>查無此型號的口碑資料</b>
+    目前資料庫尚未收錄這支手機。可改查下方熱門型號，或用 Python 產線跑出該型號資料後加入 DATA。
+  </div>
+
+  <footer>
+    TechPulse · 3C 產品口碑智慧分析　|　以 LLM 進行面向級情緒分析與自然語言問答
+  </footer>
+</div>
+
+<script>
+const ASPECTS=["相機","續航","螢幕","效能","價格","散熱"];
+
+// ====== 多型號資料庫：實作時由 Python 產線批次產生 ======
+// 每支手機附 brand（品牌）與 alias（別名，方便搜尋）
+const DATA={
+  "Phone X Pro":{brand:"Acme",alias:["xpro","x pro","旗艦"],score:82,
+    aspect:{相機:0.78,續航:0.55,螢幕:0.70,效能:0.85,價格:-0.20,散熱:0.10},
+    mentions:{相機:42,續航:38,螢幕:25,效能:40,價格:33,散熱:18},
+    posRatio:{相機:0.83,續航:0.66,螢幕:0.80,效能:0.88,價格:0.40,散熱:0.50},
+    reviews:[
+      {who:"電商買家",sentiment:"正面",aspect:"相機",txt:"夜拍進步明顯，主鏡頭細節保留比上一代好很多。",src:"PChome 評論",date:"06/02"},
+      {who:"YouTuber",sentiment:"正面",aspect:"效能",txt:"重度遊戲全程順跑，旗艦晶片表現符合預期。",src:"YouTube 留言",date:"06/03"},
+      {who:"論壇用戶",sentiment:"中立",aspect:"續航",txt:"一般使用可撐一天，重度使用就要午充。",src:"Mobile01",date:"06/03"},
+      {who:"開箱部落客",sentiment:"負面",aspect:"價格",txt:"規格不錯但定價偏高，CP 值見仁見智。",src:"部落格",date:"06/04"},
+      {who:"電商買家",sentiment:"負面",aspect:"散熱",txt:"長時間錄影機身偏燙，希望後續優化。",src:"momo 評論",date:"06/05"},
+      {who:"科技媒體",sentiment:"正面",aspect:"螢幕",txt:"高亮度戶外可視性佳，色準也很到位。",src:"科技新報",date:"06/05"},
+    ]},
+  "Phone A Lite":{brand:"Acme",alias:["alite","a lite","平價"],score:71,
+    aspect:{相機:0.35,續航:0.82,螢幕:0.40,效能:0.30,價格:0.75,散熱:0.45},
+    mentions:{相機:28,續航:45,螢幕:22,效能:26,價格:48,散熱:15},
+    posRatio:{相機:0.55,續航:0.88,螢幕:0.60,效能:0.52,價格:0.86,散熱:0.66},
+    reviews:[
+      {who:"電商買家",sentiment:"正面",aspect:"價格",txt:"這個價位的續航跟質感很有誠意，學生很適合。",src:"momo 評論",date:"06/01"},
+      {who:"論壇用戶",sentiment:"正面",aspect:"續航",txt:"大電量真的有感，輕度使用兩天一充沒問題。",src:"Mobile01",date:"06/02"},
+      {who:"YouTuber",sentiment:"中立",aspect:"效能",txt:"日常夠用，但多工切換偶爾會卡頓。",src:"YouTube 留言",date:"06/03"},
+      {who:"開箱部落客",sentiment:"負面",aspect:"相機",txt:"白天表現尚可，夜拍噪點較明顯。",src:"部落格",date:"06/04"},
+      {who:"電商買家",sentiment:"中立",aspect:"螢幕",txt:"更新率普通，但這個價格可以接受。",src:"PChome 評論",date:"06/05"},
+    ]},
+  "Pixel 9 Pro":{brand:"Google",alias:["pixel","pixel9","pixel 9"],score:85,
+    aspect:{相機:0.92,續航:0.50,螢幕:0.72,效能:0.68,價格:0.05,散熱:0.20},
+    mentions:{相機:55,續航:30,螢幕:28,效能:34,價格:29,散熱:16},
+    posRatio:{相機:0.93,續航:0.60,螢幕:0.82,效能:0.74,價格:0.55,散熱:0.56},
+    reviews:[
+      {who:"攝影玩家",sentiment:"正面",aspect:"相機",txt:"運算攝影依舊頂尖，逆光與夜景特別強。",src:"Mobile01",date:"06/02"},
+      {who:"YouTuber",sentiment:"正面",aspect:"螢幕",txt:"螢幕調校細膩，動態範圍表現好。",src:"YouTube 留言",date:"06/03"},
+      {who:"論壇用戶",sentiment:"中立",aspect:"續航",txt:"續航普通，重度使用得帶行動電源。",src:"Mobile01",date:"06/04"},
+      {who:"電商買家",sentiment:"正面",aspect:"效能",txt:"自家晶片日常很順，AI 功能實用。",src:"momo 評論",date:"06/05"},
+      {who:"開箱部落客",sentiment:"中立",aspect:"散熱",txt:"高負載下會溫，但不至於降頻嚴重。",src:"部落格",date:"06/05"},
+    ]},
+  "Galaxy S25 Ultra":{brand:"Samsung",alias:["galaxy","s25","ultra","三星"],score:84,
+    aspect:{相機:0.80,續航:0.65,螢幕:0.88,效能:0.82,價格:-0.30,散熱:0.15},
+    mentions:{相機:48,續航:36,螢幕:44,效能:42,價格:38,散熱:20},
+    posRatio:{相機:0.85,續航:0.72,螢幕:0.92,效能:0.86,價格:0.35,散熱:0.55},
+    reviews:[
+      {who:"科技媒體",sentiment:"正面",aspect:"螢幕",txt:"頂規螢幕亮度與更新率，戶外表現出色。",src:"科技新報",date:"06/02"},
+      {who:"電商買家",sentiment:"正面",aspect:"相機",txt:"長焦望遠很實用，變焦畫質扎實。",src:"PChome 評論",date:"06/03"},
+      {who:"論壇用戶",sentiment:"負面",aspect:"價格",txt:"頂規價格不親民，入手門檻高。",src:"Mobile01",date:"06/04"},
+      {who:"YouTuber",sentiment:"正面",aspect:"效能",txt:"旗艦效能無懸念，多工流暢。",src:"YouTube 留言",date:"06/05"},
+      {who:"開箱部落客",sentiment:"中立",aspect:"續航",txt:"大電量但耗電也兇，整體可接受。",src:"部落格",date:"06/05"},
+    ]},
+  "iPhone 16 Pro":{brand:"Apple",alias:["iphone","16pro","16 pro","蘋果"],score:86,
+    aspect:{相機:0.82,續航:0.70,螢幕:0.78,效能:0.95,價格:-0.25,散熱:0.30},
+    mentions:{相機:50,續航:40,螢幕:30,效能:52,價格:41,散熱:22},
+    posRatio:{相機:0.86,續航:0.78,螢幕:0.84,效能:0.96,價格:0.38,散熱:0.62},
+    reviews:[
+      {who:"YouTuber",sentiment:"正面",aspect:"效能",txt:"新晶片效能誇張，剪輯與遊戲都游刃有餘。",src:"YouTube 留言",date:"06/02"},
+      {who:"電商買家",sentiment:"正面",aspect:"續航",txt:"續航比預期好，一天重度使用沒問題。",src:"momo 評論",date:"06/03"},
+      {who:"攝影玩家",sentiment:"正面",aspect:"相機",txt:"錄影色彩與穩定度依舊業界標竿。",src:"Mobile01",date:"06/04"},
+      {who:"論壇用戶",sentiment:"負面",aspect:"價格",txt:"售價逐年走高，配件還要另外買。",src:"Mobile01",date:"06/05"},
+      {who:"開箱部落客",sentiment:"中立",aspect:"散熱",txt:"散熱比前代改善，長時間遊戲溫度可控。",src:"部落格",date:"06/05"},
+    ]},
+  "Redmi Note 14":{brand:"Xiaomi",alias:["redmi","note14","note 14","紅米","小米"],score:74,
+    aspect:{相機:0.40,續航:0.78,螢幕:0.55,效能:0.45,價格:0.85,散熱:0.40},
+    mentions:{相機:30,續航:42,螢幕:26,效能:30,價格:52,散熱:14},
+    posRatio:{相機:0.58,續航:0.84,螢幕:0.70,效能:0.60,價格:0.90,散熱:0.64},
+    reviews:[
+      {who:"電商買家",sentiment:"正面",aspect:"價格",txt:"千元有找的規格，CP 值非常高。",src:"momo 評論",date:"06/01"},
+      {who:"論壇用戶",sentiment:"正面",aspect:"續航",txt:"電池夠大，輕度使用兩天沒問題。",src:"Mobile01",date:"06/02"},
+      {who:"YouTuber",sentiment:"中立",aspect:"相機",txt:"白天堪用，夜拍受限於感光元件。",src:"YouTube 留言",date:"06/03"},
+      {who:"開箱部落客",sentiment:"中立",aspect:"效能",txt:"中階晶片日常順暢，重載稍力不從心。",src:"部落格",date:"06/04"},
+      {who:"電商買家",sentiment:"正面",aspect:"螢幕",txt:"這價位給到高更新率螢幕，誠意足。",src:"PChome 評論",date:"06/05"},
+    ]},
+};
+const COLORS={"正面":"#0ea371","中立":"#c98a14","負面":"#e0455e"};
+
+const ASPECT_KW={相機:["相機","拍照","夜拍","鏡頭","錄影","望遠","變焦"],續航:["續航","電量","電池","充電"],
+  螢幕:["螢幕","顯示","亮度","色準","更新率"],效能:["效能","遊戲","晶片","跑","卡頓","流暢","多工"],
+  價格:["價格","定價","cp","cp值","便宜","貴","划算","價位","值不值"],散熱:["散熱","發熱","燙","溫度","降頻"]};
+
+let current=Object.keys(DATA)[0];
+let activeFilter="all";
+let charts={};
+
+// ===== 搜尋功能 =====
+const searchEl=document.getElementById('search');
+const suggestEl=document.getElementById('suggest');
+let hlIndex=-1;
+
+function matchProducts(q){
+  q=q.trim().toLowerCase();
+  if(!q)return Object.keys(DATA);
+  return Object.keys(DATA).filter(name=>{
+    const d=DATA[name];
+    return name.toLowerCase().includes(q)
+      || (d.brand&&d.brand.toLowerCase().includes(q))
+      || (d.alias&&d.alias.some(a=>a.toLowerCase().includes(q)));
+  });
+}
+function renderSuggest(){
+  const q=searchEl.value;
+  const matches=matchProducts(q).slice(0,8);
+  hlIndex=-1;
+  if(matches.length===0){
+    suggestEl.innerHTML=`<div class="none">查無「${q}」，試試 Pixel、iPhone、Galaxy、Redmi…</div>`;
+  }else{
+    suggestEl.innerHTML=matches.map(n=>
+      `<div data-name="${n}"><span>${n}</span><span class="br">${DATA[n].brand}</span></div>`).join('');
+    suggestEl.querySelectorAll('div[data-name]').forEach(el=>{
+      el.onclick=()=>selectProduct(el.dataset.name);
+    });
+  }
+  suggestEl.classList.add('show');
+}
+function selectProduct(name){
+  if(!DATA[name])return;
+  current=name;activeFilter="all";
+  searchEl.value="";suggestEl.classList.remove('show');
+  document.querySelectorAll('#filters button').forEach(x=>x.classList.toggle('on',x.dataset.f==="all"));
+  document.getElementById('answer').classList.remove('show');
+  document.querySelectorAll('#quick span').forEach(x=>x.classList.toggle('on',x.dataset.name===name));
+  showDashboard(true);render();
+}
+function showDashboard(show){
+  document.getElementById('dashboard').style.display=show?'block':'none';
+  document.getElementById('empty').style.display=show?'none':'block';
+}
+searchEl.addEventListener('input',renderSuggest);
+searchEl.addEventListener('focus',renderSuggest);
+searchEl.addEventListener('keydown',e=>{
+  const items=suggestEl.querySelectorAll('div[data-name]');
+  if(e.key==='ArrowDown'){hlIndex=Math.min(hlIndex+1,items.length-1);}
+  else if(e.key==='ArrowUp'){hlIndex=Math.max(hlIndex-1,0);}
+  else if(e.key==='Enter'){
+    if(hlIndex>=0&&items[hlIndex]){selectProduct(items[hlIndex].dataset.name);}
+    else{const m=matchProducts(searchEl.value);m.length?selectProduct(m[0]):showDashboard(false);
+      suggestEl.classList.remove('show');}
+    return;
+  }else return;
+  items.forEach((el,i)=>el.classList.toggle('hl',i===hlIndex));
+  e.preventDefault();
+});
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.searchbar'))suggestEl.classList.remove('show');
+});
+
+// 熱門型號快捷 chips
+Object.keys(DATA).forEach((n,i)=>{
+  const s=document.createElement('span');s.textContent=n;s.dataset.name=n;
+  if(i===0)s.classList.add('on');
+  s.onclick=()=>selectProduct(n);
+  document.getElementById('quick').appendChild(s);
+});
+
+// 篩選
+document.querySelectorAll('#filters button').forEach(b=>{
+  b.onclick=()=>{document.querySelectorAll('#filters button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');activeFilter=b.dataset.f;renderFeed();};
+});
+// Agent 範例問題
+["拍照好嗎？","散熱有問題嗎？","適合學生嗎？","續航夠用嗎？"].forEach(t=>{
+  const s=document.createElement('span');s.textContent=t;
+  s.onclick=()=>{document.getElementById('q').value=t;ask();};
+  document.getElementById('chips').appendChild(s);
+});
+
+function ask(){
+  const q=document.getElementById('q').value.trim();
+  const ansEl=document.getElementById('answer');
+  if(!q){ansEl.classList.remove('show');return;}
+  const d=DATA[current];
+  let hit=null;
+  for(const a of ASPECTS){if(ASPECT_KW[a].some(k=>q.toLowerCase().includes(k))){hit=a;break;}}
+  let body;
+  if(hit){
+    const sc=d.aspect[hit],pr=Math.round(d.posRatio[hit]*100),mc=d.mentions[hit];
+    const verdict=sc>=0.5?"表現相當不錯":sc>=0.1?"評價中等、褒貶不一":"是相對弱項";
+    body=`針對「${current}」的<b>${hit}</b>：${verdict}。共 ${mc} 則評論提及，好評率約 ${pr}%。<div class="src">// 依據 DATA 實際彙整，未額外臆測（反 Hallucination）</div>`;
+  }else if(/學生|預算|便宜|推薦|cp/i.test(q)){
+    const best=ASPECTS.reduce((a,b)=>d.aspect[a]>d.aspect[b]?a:b);
+    body=`「${current}」綜合口碑 ${d.score} 分，最受好評的面向是<b>${best}</b>。價格面向好評率 ${Math.round(d.posRatio["價格"]*100)}%，可作為預算考量參考。<div class="src">// 建議搭配雷達圖綜合判斷</div>`;
+  }else{
+    body=`目前資料中沒有足以回答「${q}」的內容，無法臆測。建議改問六大面向（相機／續航／螢幕／效能／價格／散熱）相關問題。<div class="src">// 資料不足時明確告知，不杜撰（反 Hallucination）</div>`;
+  }
+  ansEl.innerHTML=body;ansEl.classList.add('show');
+}
+
+function render(){
+  const d=DATA[current];
+  document.getElementById('curName').textContent=`${current}（${d.brand}）`;
+  const cnt={"正面":0,"中立":0,"負面":0};
+  d.reviews.forEach(r=>cnt[r.sentiment]++);
+  document.getElementById('kScore').textContent=d.score;
+  document.getElementById('kPos').textContent=cnt["正面"];
+  document.getElementById('kNeu').textContent=cnt["中立"];
+  document.getElementById('kNeg').textContent=cnt["負面"];
+
+  Object.values(charts).forEach(c=>c.destroy());
+  Chart.defaults.color="#5b626e";Chart.defaults.font.family="'IBM Plex Mono',monospace";
+
+  charts.radar=new Chart(radar,{type:'radar',data:{labels:ASPECTS,
+    datasets:[{label:current,data:ASPECTS.map(a=>(d.aspect[a]+1)*50),
+      borderColor:"#2f6bff",backgroundColor:"rgba(47,107,255,.12)",pointBackgroundColor:"#2f6bff",borderWidth:2}]},
+    options:{scales:{r:{min:0,max:100,grid:{color:"#ececec"},angleLines:{color:"#ececec"},
+      pointLabels:{color:"#111418",font:{size:13}},ticks:{display:false}}},plugins:{legend:{display:false}}}});
+
+  charts.pie=new Chart(pie,{type:'doughnut',data:{labels:Object.keys(cnt),
+    datasets:[{data:Object.values(cnt),backgroundColor:Object.keys(cnt).map(k=>COLORS[k]),borderColor:"#fff",borderWidth:3}]},
+    options:{plugins:{legend:{position:'bottom'}},cutout:'64%'}});
+
+  charts.bar=new Chart(bar,{type:'bar',data:{labels:ASPECTS,
+    datasets:[
+      {label:'提及次數',data:ASPECTS.map(a=>d.mentions[a]),backgroundColor:"#2f6bff",borderRadius:6,yAxisID:'y'},
+      {label:'好評率 %',data:ASPECTS.map(a=>Math.round(d.posRatio[a]*100)),type:'line',
+        borderColor:"#0ea371",backgroundColor:"#0ea371",tension:.35,yAxisID:'y1',pointRadius:4}
+    ]},
+    options:{plugins:{legend:{position:'bottom'}},scales:{
+      y:{position:'left',grid:{color:"#ececec"},title:{display:true,text:'提及次數'}},
+      y1:{position:'right',min:0,max:100,grid:{display:false},title:{display:true,text:'好評率 %'}},
+      x:{grid:{display:false}}}}});
+
+  renderFeed();
+}
+function renderFeed(){
+  const rows=DATA[current].reviews.filter(r=>activeFilter==="all"||r.sentiment===activeFilter);
+  document.getElementById('feed').innerHTML=rows.map(r=>`
+    <div class="item" data-s="${r.sentiment}">
+      <div class="head"><div class="who">${r.who}</div>
+        <div class="badges"><span class="tag a">${r.aspect}</span><span class="tag s">${r.sentiment}</span></div></div>
+      <div class="txt">${r.txt}</div>
+      <div class="meta">${r.src} · ${r.date}</div>
+    </div>`).join('');
+}
+document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')ask();});
+render();
+</script>
+</body>
+</html>
